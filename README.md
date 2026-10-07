@@ -1,54 +1,88 @@
 # LuCI Dashboard 2026
 
-Modern dashboard for OpenWrt LuCI.
+Modern standalone dashboard for OpenWrt LuCI.
 
-Designed as a standalone LuCI application so it does not replace or patch the stock LuCI interface.
+The project does **not** replace or patch stock LuCI. It adds a separate page at:
+
+**Status -> Router Dashboard**
 
 ## Current dashboard
 
-- WAN / Internet status and IPv4 address
+- WAN / Internet status with masked public IPv4
 - Router model, firmware and uptime
-- System load, RAM usage and temperature
+- CPU load
+- RAM usage
+- SoC temperature
 - Wi-Fi networks and connected client count
-- AdGuard Home status
-- Forkop status
-- sing-box status
-- One-click service restart
+- AdGuard Home detection and controls
+- Forkop detection and controls
+- sing-box detection and controls
+- Start / stop / restart buttons for detected services
 - Responsive light/dark UI
 
 ## Target
 
-Primary target: modern OpenWrt releases with JavaScript LuCI views.
+Modern OpenWrt releases using JavaScript LuCI views.
 
-## Package layout
+The current implementation is designed around the current LuCI JS API and avoids legacy Lua controllers.
+
+## Repository layout
 
 ```
-Makefile
-htdocs/luci-static/resources/
-  router-dashboard/dashboard.css
-  view/router-dashboard/overview.js
-root/usr/share/
-  luci/menu.d/luci-app-router-dashboard.json
-  rpcd/acl.d/luci-app-router-dashboard.json
+luci-app-router-dashboard/
+  Makefile
+  htdocs/luci-static/resources/
+    router-dashboard/dashboard.css
+    view/router-dashboard/dashboard.js
+  root/usr/share/
+    luci/menu.d/luci-app-router-dashboard.json
+    rpcd/acl.d/luci-app-router-dashboard.json
+
+install.sh
+uninstall.sh
 ```
 
-## Development install
+## Quick development install
 
-Copy the repository to the router and run:
+Copy or clone the repository onto the router and run:
 
 ```sh
-chmod +x install.sh
+chmod +x install.sh uninstall.sh
 ./install.sh
 ```
 
-Then open LuCI and go to **Status -> Router Dashboard**.
+Then refresh LuCI and open:
+
+**Status -> Router Dashboard**
+
+To remove it:
+
+```sh
+./uninstall.sh
+```
 
 ## Build as an OpenWrt package
 
-Place this repository in an OpenWrt SDK/package tree, refresh feeds if needed and build:
+Copy `luci-app-router-dashboard` into the OpenWrt buildroot or SDK package tree, for example:
 
 ```sh
+cp -r luci-app-router-dashboard /path/to/openwrt/package/
+cd /path/to/openwrt
 make package/luci-app-router-dashboard/compile V=s
 ```
 
-The package is intentionally independent from AdGuard Home, Forkop and sing-box. If any of them is not installed, the dashboard simply shows it as unavailable.
+## Optional services
+
+AdGuard Home, Forkop and sing-box are optional.
+
+If one of them is not installed, it is simply omitted from the Services card.
+
+## Notes
+
+The dashboard masks an IPv4 address such as:
+
+```
+80.189.23.41 -> 80.189.*.*
+```
+
+The stock LuCI pages remain available and unchanged.
