@@ -1,0 +1,15 @@
+{
+  "admin/status/router-dashboard": {
+    "title": "Router Dashboard",
+    "order": 1,
+    "action": {
+      "type": "view",
+      "path": "router-dashboard/dashboard"
+    },
+    "depends": {
+      "acl": [
+        "luci-app-router-dashboard"
+      ]
+    }
+  }
+}
