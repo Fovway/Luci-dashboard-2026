@@ -3,23 +3,55 @@
     "description": "Allow access to Router Dashboard status and safe service controls",
     "read": {
       "ubus": {
-        "system": [ "board", "info" ],
-        "luci-rpc": [ "getBoardJSON", "getHostHints", "getNetworkDevices", "getWirelessDevices" ],
-        "network": [ "get_proto_handlers" ],
-        "network.device": [ "status" ],
-        "network.interface": [ "dump" ],
-        "iwinfo": [ "assoclist" ],
-        "rc": [ "list", "init" ]
+        "system": [
+          "board",
+          "info"
+        ],
+        "luci-rpc": [
+          "getBoardJSON",
+          "getHostHints",
+          "getNetworkDevices",
+          "getWirelessDevices"
+        ],
+        "network": [
+          "get_proto_handlers"
+        ],
+        "network.device": [
+          "status"
+        ],
+        "network.interface": [
+          "dump"
+        ],
+        "iwinfo": [
+          "assoclist"
+        ],
+        "rc": [
+          "list",
+          "init"
+        ],
+        "service": [
+          "list"
+        ]
       },
-      "uci": [ "luci", "network", "wireless" ],
+      "uci": [
+        "luci",
+        "network",
+        "wireless"
+      ],
       "file": {
-        "/sys/class/thermal/thermal_zone0/temp": [ "read" ],
-        "/proc/cpuinfo": [ "read" ]
+        "/sys/class/thermal/thermal_zone0/temp": [
+          "read"
+        ],
+        "/proc/cpuinfo": [
+          "read"
+        ]
       }
     },
     "write": {
       "ubus": {
-        "rc": [ "init" ]
+        "rc": [
+          "init"
+        ]
       }
     }
   }
