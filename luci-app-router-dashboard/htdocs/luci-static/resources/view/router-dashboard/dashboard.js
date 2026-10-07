@@ -82,6 +82,21 @@ function serviceLabel(name) {
 	return name;
 }
 
+async function getForkopNativeStatus() {
+	try {
+		const res = await fs.exec('/usr/bin/forkop', [ 'get_status' ]);
+		if (res && res.code === 0 && res.stdout) {
+			const data = JSON.parse(res.stdout);
+			return {
+				running: Number(data.running) === 1,
+				enabled: Number(data.enabled) === 1
+			};
+		}
+	} catch (e) {}
+
+	return null;
+}
+
 return view.extend({
 	load() {
 		return Promise.all([
@@ -113,6 +128,19 @@ return view.extend({
 				if (!actual)
 					continue;
 
+				if (key === 'forkop') {
+					const native = await getForkopNativeStatus();
+					if (native) {
+						services[key] = {
+							exists: true,
+							running: native.running,
+							enabled: native.enabled,
+							init: actual
+						};
+						continue;
+					}
+				}
+
 				const state = await L.resolveDefault(callServiceList(actual), {});
 				const entry = state && state[actual];
 				const instances = (entry && entry.instances) || {};
@@ -131,18 +159,18 @@ return view.extend({
 		if (!window.confirm(_('Apply "%s" to %s?').format(action, serviceLabel(name))))
 			return;
 
-		ui.showModal(_('Applying'), [
-			E('p', {}, [ _('Running %s %s…').format(serviceLabel(name), action) ])
+		ui.showModal(_('Выполнение'), [
+			E('p', {}, [ _('Выполняется: %s — %s…').format(serviceLabel(name), action) ])
 		]);
 
 		return callRcInit(initName, action).then(ret => {
 			ui.hideModal();
 			if (ret)
-				throw new Error(_('Command failed'));
+				throw new Error(_('Команда завершилась ошибкой'));
 			window.setTimeout(() => window.location.reload(), 700);
 		}).catch(err => {
 			ui.hideModal();
-			ui.addNotification(null, E('p', {}, [ _('Failed: %s').format(err.message || err) ]));
+			ui.addNotification(null, E('p', {}, [ _('Ошибка: %s').format(err.message || err) ]));
 		});
 	},
 
@@ -186,7 +214,7 @@ return view.extend({
 		}
 		const online = !!(wan && wan.isUp());
 		const wanIp = online ? ((wan.getIPAddrs() || [])[0] || '-').split('/')[0] : '-';
-		const wanProto = online ? (wan.getI18n() || wan.getProtocol() || '-') : _('Disconnected');
+		const wanProto = online ? (wan.getI18n() || wan.getProtocol() || '-') : _('Нет соединения');
 		const uptime = info.uptime ? '%t'.format(info.uptime) : '-';
 		const temperature = tempValue(data.temp);
 
@@ -197,11 +225,11 @@ return view.extend({
 			const list = item.list || [];
 			localWifiClients += list.length;
 			wifiNodes.push(E('div', { 'class': 'rd-pill' }, [
-				E('b', {}, [ net.getActiveSSID() || _('Unnamed Wi-Fi') ]),
+				E('b', {}, [ net.getActiveSSID() || _('Wi-Fi без имени') ]),
 				E('span', {}, [
-					(net.isDisabled() ? _('Disabled') : _('Active')) +
+					(net.isDisabled() ? _('Отключена') : _('Активна')) +
 					(net.getChannel() ? ' · ch ' + net.getChannel() : '') +
-					' · ' + list.length + ' ' + _('local clients')
+					' · ' + list.length + ' ' + _('локальных клиентов')
 				])
 			]));
 		}
@@ -225,7 +253,7 @@ return view.extend({
 
 		const deviceNodes = devices.slice(0, 12).map(lease =>
 			E('div', { 'class': 'rd-pill' }, [
-				E('b', {}, [ lease.hostname || _('Unknown device') ]),
+				E('b', {}, [ lease.hostname || _('Неизвестное устройство') ]),
 				E('span', {}, [
 					(lease.ipaddr || '-') + (lease.macaddr ? ' · ' + lease.macaddr : '')
 				])
@@ -235,7 +263,7 @@ return view.extend({
 		if (devices.length > 12)
 			deviceNodes.push(E('div', { 'class': 'rd-pill' }, [
 				E('b', {}, [ '+' + (devices.length - 12) ]),
-				E('span', {}, [ _('more devices') ])
+				E('span', {}, [ _('ещё устройств') ])
 			]));
 
 		const serviceRows = [];
@@ -251,7 +279,7 @@ return view.extend({
 							E('span', { 'class': 'rd-dot warn' }),
 							serviceLabel(name)
 						]),
-						E('div', { 'class': 'rd-service-state' }, [ _('Managed by Forkop') ])
+						E('div', { 'class': 'rd-service-state' }, [ _('Управляется Forkop') ])
 					])
 				]));
 				continue;
@@ -264,18 +292,18 @@ return view.extend({
 						E('span', { 'class': 'rd-dot ' + (running ? 'good' : 'bad') }),
 						serviceLabel(name)
 					]),
-					E('div', { 'class': 'rd-service-state' }, [ running ? _('Running') : _('Stopped') ])
+					E('div', { 'class': 'rd-service-state' }, [ running ? _('Работает') : _('Остановлен') ])
 				]),
 				E('div', { 'class': 'rd-actions' }, [
 					E('button', {
 						'class': 'rd-btn',
 						'click': ui.createHandlerFn(this, 'handleService', name, services[name].init, running ? 'restart' : 'start')
-					}, [ running ? _('Restart') : _('Start') ])
+					}, [ running ? _('Перезапустить') : _('Запустить') ])
 				])
 			]));
 		}
 		if (!serviceRows.length)
-			serviceRows.push(E('div', { 'class': 'rd-meta' }, [ _('AdGuard Home, Forkop and sing-box were not detected.') ]));
+			serviceRows.push(E('div', { 'class': 'rd-meta' }, [ _('AdGuard Home, Forkop и sing-box не обнаружены.') ]));
 
 		return E('div', { 'class': 'rd-shell' }, [
 			E('link', {
@@ -284,54 +312,54 @@ return view.extend({
 			}),
 			E('div', { 'class': 'rd-head' }, [
 				E('div', {}, [
-					E('div', { 'class': 'rd-title' }, [ 'OpenWrt Dashboard' ]),
+					E('div', { 'class': 'rd-title' }, [ 'Панель OpenWrt' ]),
 					E('div', { 'class': 'rd-sub' }, [
-						(board.model || _('Router')) + ' · ' + (board.release?.description || board.kernel || '')
+						(board.model || _('Роутер')) + ' · ' + (board.release?.description || board.kernel || '')
 					])
 				]),
-				E('div', { 'class': 'rd-sub' }, [ _('Uptime') + ': ' + uptime ])
+				E('div', { 'class': 'rd-sub' }, [ _('Время работы') + ': ' + uptime ])
 			]),
 			E('main', { 'class': 'rd-grid' }, [
 				this.card(
-					_('Internet'),
-					online ? _('Online') : _('Offline'),
-					online ? (wanProto + ' · ' + maskIp(wanIp)) : _('WAN is not connected')
+					_('Интернет'),
+					online ? _('В сети') : _('Нет соединения'),
+					online ? (wanProto + ' · ' + maskIp(wanIp)) : _('WAN не подключён')
 				),
 				this.progressCard(
-					_('CPU load'),
+					_('Нагрузка CPU'),
 					pct(cpuLoad) + '%',
 					cpuLoad,
-					cores + ' ' + _('cores') + ' · load ' + load1.toFixed(2)
+					'Ядер: ' + cores + ' · нагрузка: ' + load1.toFixed(2)
 				),
 				this.progressCard(
-					_('Memory'),
+					_('Оперативная память'),
 					pct(memPct) + '%',
 					memPct,
 					bytes(used) + ' / ' + bytes(memory.total || 0)
 				),
 				this.card(
-					_('Temperature'),
+					_('Температура'),
 					temperature != null ? temperature + ' °C' : '-',
-					temperature != null ? _('SoC thermal sensor') : _('Sensor unavailable')
+					temperature != null ? _('Датчик температуры SoC') : _('Датчик недоступен')
 				),
 				E('section', { 'class': 'rd-card wide' }, [
-					E('div', { 'class': 'rd-kicker' }, [ _('Network devices') ]),
-					E('div', { 'class': 'rd-value' }, [ devices.length + ' ' + _('devices') ]),
-					E('div', { 'class': 'rd-meta' }, [ _('Active DHCP leases on the main router') ]),
+					E('div', { 'class': 'rd-kicker' }, [ _('Устройства сети') ]),
+					E('div', { 'class': 'rd-value' }, [ devices.length + ' ' + _('устройств') ]),
+					E('div', { 'class': 'rd-meta' }, [ _('Активные DHCP-аренды на основном роутере') ]),
 					E('div', { 'class': 'rd-wifi' }, deviceNodes.length ? deviceNodes : [
-						E('div', { 'class': 'rd-meta' }, [ _('No active DHCP leases found.') ])
+						E('div', { 'class': 'rd-meta' }, [ _('Активные DHCP-аренды не найдены.') ])
 					])
 				]),
 				E('section', { 'class': 'rd-card wide' }, [
-					E('div', { 'class': 'rd-kicker' }, [ _('Wi-Fi on this router') ]),
-					E('div', { 'class': 'rd-value' }, [ localWifiClients + ' ' + _('local clients') ]),
-					E('div', { 'class': 'rd-meta' }, [ _('Devices connected through another access point are counted in Network devices instead.') ]),
+					E('div', { 'class': 'rd-kicker' }, [ _('Wi-Fi этого роутера') ]),
+					E('div', { 'class': 'rd-value' }, [ localWifiClients + ' ' + _('локальных клиентов') ]),
+					E('div', { 'class': 'rd-meta' }, [ _('Устройства через другую точку доступа учитываются в блоке «Устройства сети».') ]),
 					E('div', { 'class': 'rd-wifi' }, wifiNodes.length ? wifiNodes : [
-						E('div', { 'class': 'rd-meta' }, [ _('No Wi-Fi interfaces detected.') ])
+						E('div', { 'class': 'rd-meta' }, [ _('Wi-Fi-интерфейсы не обнаружены.') ])
 					])
 				]),
 				E('section', { 'class': 'rd-card full' }, [
-					E('div', { 'class': 'rd-kicker' }, [ _('Services') ]),
+					E('div', { 'class': 'rd-kicker' }, [ _('Сервисы') ]),
 					E('div', { 'style': 'margin-top:6px' }, serviceRows)
 				])
 			])
