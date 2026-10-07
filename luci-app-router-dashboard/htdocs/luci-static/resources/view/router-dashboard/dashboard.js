@@ -23,6 +23,12 @@ const callRcList = rpc.declare({
 	expect: { '': {} }
 });
 
+const callDHCPLeases = rpc.declare({
+	object: 'luci-rpc',
+	method: 'getDHCPLeases',
+	expect: { '': {} }
+});
+
 const callServiceList = rpc.declare({
 	object: 'service',
 	method: 'list',
@@ -86,7 +92,8 @@ return view.extend({
 			L.resolveDefault(network.getHostHints(), null),
 			L.resolveDefault(fs.read('/sys/class/thermal/thermal_zone0/temp'), ''),
 			L.resolveDefault(fs.read('/proc/cpuinfo'), ''),
-			L.resolveDefault(callRcList(), {})
+			L.resolveDefault(callRcList(), {}),
+			L.resolveDefault(callDHCPLeases(), {})
 		]).then(async data => {
 			const wifi = data[3] || [];
 			const assoc = await Promise.all(wifi.map(net =>
@@ -116,7 +123,7 @@ return view.extend({
 				services[key] = { exists: true, running: running, init: actual };
 			}
 
-			return { board: data[0], info: data[1], wan: data[2], wifi: assoc, hints: data[4], temp: data[5], cpuinfo: data[6], services };
+			return { board: data[0], info: data[1], wan: data[2], wifi: assoc, hints: data[4], temp: data[5], cpuinfo: data[6], leases: data[8], services };
 		});
 	},
 
@@ -183,21 +190,53 @@ return view.extend({
 		const uptime = info.uptime ? '%t'.format(info.uptime) : '-';
 		const temperature = tempValue(data.temp);
 
-		let clientCount = 0;
+		let localWifiClients = 0;
 		const wifiNodes = [];
 		for (const item of data.wifi || []) {
 			const net = item.net;
 			const list = item.list || [];
-			clientCount += list.length;
+			localWifiClients += list.length;
 			wifiNodes.push(E('div', { 'class': 'rd-pill' }, [
 				E('b', {}, [ net.getActiveSSID() || _('Unnamed Wi-Fi') ]),
 				E('span', {}, [
-					(net.isDisabled() ? _('Disabled') : _('Active')) + ' · ' +
-					list.length + ' ' + _('clients') +
-					(net.getChannel() ? ' · ch ' + net.getChannel() : '')
+					(net.isDisabled() ? _('Disabled') : _('Active')) +
+					(net.getChannel() ? ' · ch ' + net.getChannel() : '') +
+					' · ' + list.length + ' ' + _('local clients')
 				])
 			]));
 		}
+
+		const leases = Array.isArray(data.leases && data.leases.dhcp_leases)
+			? data.leases.dhcp_leases
+			: [];
+		const seen = {};
+		const devices = [];
+		for (const lease of leases) {
+			const key = (lease.macaddr || lease.ipaddr || '').toLowerCase();
+			if (!key || seen[key])
+				continue;
+			seen[key] = true;
+			devices.push(lease);
+		}
+
+		devices.sort((a, b) =>
+			String(a.hostname || a.ipaddr || '').localeCompare(String(b.hostname || b.ipaddr || ''))
+		);
+
+		const deviceNodes = devices.slice(0, 12).map(lease =>
+			E('div', { 'class': 'rd-pill' }, [
+				E('b', {}, [ lease.hostname || _('Unknown device') ]),
+				E('span', {}, [
+					(lease.ipaddr || '-') + (lease.macaddr ? ' · ' + lease.macaddr : '')
+				])
+			])
+		);
+
+		if (devices.length > 12)
+			deviceNodes.push(E('div', { 'class': 'rd-pill' }, [
+				E('b', {}, [ '+' + (devices.length - 12) ]),
+				E('span', {}, [ _('more devices') ])
+			]));
 
 		const serviceRows = [];
 		const services = data.services || {};
@@ -276,13 +315,22 @@ return view.extend({
 					temperature != null ? _('SoC thermal sensor') : _('Sensor unavailable')
 				),
 				E('section', { 'class': 'rd-card wide' }, [
-					E('div', { 'class': 'rd-kicker' }, [ _('Wi-Fi') ]),
-					E('div', { 'class': 'rd-value' }, [ clientCount + ' ' + _('clients') ]),
+					E('div', { 'class': 'rd-kicker' }, [ _('Network devices') ]),
+					E('div', { 'class': 'rd-value' }, [ devices.length + ' ' + _('devices') ]),
+					E('div', { 'class': 'rd-meta' }, [ _('Active DHCP leases on the main router') ]),
+					E('div', { 'class': 'rd-wifi' }, deviceNodes.length ? deviceNodes : [
+						E('div', { 'class': 'rd-meta' }, [ _('No active DHCP leases found.') ])
+					])
+				]),
+				E('section', { 'class': 'rd-card wide' }, [
+					E('div', { 'class': 'rd-kicker' }, [ _('Wi-Fi on this router') ]),
+					E('div', { 'class': 'rd-value' }, [ localWifiClients + ' ' + _('local clients') ]),
+					E('div', { 'class': 'rd-meta' }, [ _('Devices connected through another access point are counted in Network devices instead.') ]),
 					E('div', { 'class': 'rd-wifi' }, wifiNodes.length ? wifiNodes : [
 						E('div', { 'class': 'rd-meta' }, [ _('No Wi-Fi interfaces detected.') ])
 					])
 				]),
-				E('section', { 'class': 'rd-card wide' }, [
+				E('section', { 'class': 'rd-card full' }, [
 					E('div', { 'class': 'rd-kicker' }, [ _('Services') ]),
 					E('div', { 'style': 'margin-top:6px' }, serviceRows)
 				])
