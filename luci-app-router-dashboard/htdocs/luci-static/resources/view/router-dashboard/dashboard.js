@@ -58,16 +58,6 @@ function bytes(value) {
 	return value + ' B';
 }
 
-function maskIp(ip) {
-	if (!ip)
-		return '-';
-	if (/^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
-		const p = ip.split('.');
-		return p[0] + '.' + p[1] + '.*.*';
-	}
-	return ip;
-}
-
 function tempValue(raw) {
 	const n = parseInt(raw, 10);
 	if (!isFinite(n))
@@ -323,7 +313,7 @@ return view.extend({
 				this.card(
 					_('Интернет'),
 					online ? _('В сети') : _('Нет соединения'),
-					online ? (wanProto + ' · ' + maskIp(wanIp)) : _('WAN не подключён')
+					online ? (wanProto + ' · ' + wanIp) : _('WAN не подключён')
 				),
 				this.progressCard(
 					_('Нагрузка CPU'),
