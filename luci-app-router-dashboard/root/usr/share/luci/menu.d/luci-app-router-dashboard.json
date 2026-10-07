@@ -1,6 +1,6 @@
 {
   "admin/status/router-dashboard": {
-    "title": "Router Dashboard",
+    "title": "Панель роутера",
     "order": 1,
     "action": {
       "type": "view",
