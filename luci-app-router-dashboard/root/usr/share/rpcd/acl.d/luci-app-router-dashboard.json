@@ -11,7 +11,8 @@
           "getBoardJSON",
           "getHostHints",
           "getNetworkDevices",
-          "getWirelessDevices"
+          "getWirelessDevices",
+          "getDHCPLeases"
         ],
         "network": [
           "get_proto_handlers"
