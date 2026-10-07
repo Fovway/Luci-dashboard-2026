@@ -32,6 +32,9 @@
         ],
         "service": [
           "list"
+        ],
+        "file": [
+          "exec"
         ]
       },
       "uci": [
@@ -45,6 +48,9 @@
         ],
         "/proc/cpuinfo": [
           "read"
+        ],
+        "/usr/bin/forkop": [
+          "exec"
         ]
       }
     },
