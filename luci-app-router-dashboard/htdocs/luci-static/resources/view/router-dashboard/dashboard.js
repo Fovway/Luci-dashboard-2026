@@ -17,6 +17,12 @@ const callSystemInfo = rpc.declare({
 	expect: { '': {} }
 });
 
+const callRcList = rpc.declare({
+	object: 'rc',
+	method: 'list',
+	expect: { '': {} }
+});
+
 const callRcInit = rpc.declare({
 	object: 'rc',
 	method: 'init',
@@ -72,7 +78,8 @@ return view.extend({
 			L.resolveDefault(network.getWifiNetworks(), []),
 			L.resolveDefault(network.getHostHints(), null),
 			L.resolveDefault(fs.read('/sys/class/thermal/thermal_zone0/temp'), ''),
-			L.resolveDefault(fs.read('/proc/cpuinfo'), '')
+			L.resolveDefault(fs.read('/proc/cpuinfo'), ''),
+			L.resolveDefault(callRcList(), {})
 		]).then(async data => {
 			const wifi = data[3] || [];
 			const assoc = await Promise.all(wifi.map(net =>
@@ -80,9 +87,9 @@ return view.extend({
 			));
 
 			const services = {};
+			const initList = data[7] || {};
 			for (const name of [ 'adguardhome', 'forkop', 'sing-box' ]) {
-				const exists = await L.resolveDefault(fs.read('/etc/init.d/' + name), null);
-				if (exists != null) {
+				if (initList[name] != null) {
 					const status = await L.resolveDefault(callRcInit(name, 'status'), 1);
 					services[name] = { exists: true, running: status === 0 || status === false };
 				}
@@ -93,6 +100,9 @@ return view.extend({
 	},
 
 	handleService(name, action) {
+		if (!window.confirm(_('Apply "%s" to %s?').format(action, serviceLabel(name))))
+			return;
+
 		ui.showModal(_('Applying'), [
 			E('p', {}, [ _('Running %s %s…').format(name, action) ])
 		]);
@@ -183,14 +193,12 @@ return view.extend({
 					E('div', { 'class': 'rd-service-state' }, [ running ? _('Running') : _('Stopped') ])
 				]),
 				E('div', { 'class': 'rd-actions' }, [
-					E('button', {
-						'class': 'rd-btn',
-						'click': ui.createHandlerFn(this, 'handleService', name, running ? 'restart' : 'start')
-					}, [ running ? _('Restart') : _('Start') ]),
-					running ? E('button', {
-						'class': 'rd-btn',
-						'click': ui.createHandlerFn(this, 'handleService', name, 'stop')
-					}, [ _('Stop') ]) : ''
+					(name === 'sing-box' && services.forkop)
+						? E('span', { 'class': 'rd-service-state' }, [ _('Managed by Forkop') ])
+						: E('button', {
+							'class': 'rd-btn',
+							'click': ui.createHandlerFn(this, 'handleService', name, running ? 'restart' : 'start')
+						}, [ running ? _('Restart') : _('Start') ])
 				])
 			]));
 		}
