@@ -23,6 +23,13 @@ const callRcList = rpc.declare({
 	expect: { '': {} }
 });
 
+const callServiceList = rpc.declare({
+	object: 'service',
+	method: 'list',
+	params: [ 'name' ],
+	expect: { '': {} }
+});
+
 const callRcInit = rpc.declare({
 	object: 'rc',
 	method: 'init',
@@ -88,26 +95,40 @@ return view.extend({
 
 			const services = {};
 			const initList = data[7] || {};
-			for (const name of [ 'adguardhome', 'forkop', 'sing-box' ]) {
-				if (initList[name] != null) {
-					const status = await L.resolveDefault(callRcInit(name, 'status'), 1);
-					services[name] = { exists: true, running: status === 0 || status === false };
-				}
+			const aliases = {
+				adguardhome: [ 'adguardhome', 'AdGuardHome' ],
+				forkop: [ 'forkop' ],
+				'sing-box': [ 'sing-box', 'singbox' ]
+			};
+
+			for (const key in aliases) {
+				const actual = aliases[key].find(name => initList[name] != null);
+				if (!actual)
+					continue;
+
+				const state = await L.resolveDefault(callServiceList(actual), {});
+				const entry = state && state[actual];
+				const instances = (entry && entry.instances) || {};
+				const running = Object.keys(instances).some(name =>
+					instances[name] && instances[name].running === true
+				);
+
+				services[key] = { exists: true, running: running, init: actual };
 			}
 
 			return { board: data[0], info: data[1], wan: data[2], wifi: assoc, hints: data[4], temp: data[5], cpuinfo: data[6], services };
 		});
 	},
 
-	handleService(name, action) {
+	handleService(name, initName, action) {
 		if (!window.confirm(_('Apply "%s" to %s?').format(action, serviceLabel(name))))
 			return;
 
 		ui.showModal(_('Applying'), [
-			E('p', {}, [ _('Running %s %s…').format(name, action) ])
+			E('p', {}, [ _('Running %s %s…').format(serviceLabel(name), action) ])
 		]);
 
-		return callRcInit(name, action).then(ret => {
+		return callRcInit(initName, action).then(ret => {
 			ui.hideModal();
 			if (ret)
 				throw new Error(_('Command failed'));
@@ -183,6 +204,20 @@ return view.extend({
 		for (const name of [ 'adguardhome', 'forkop', 'sing-box' ]) {
 			if (!services[name])
 				continue;
+
+			if (name === 'sing-box' && services.forkop) {
+				serviceRows.push(E('div', { 'class': 'rd-row' }, [
+					E('div', {}, [
+						E('div', { 'class': 'rd-service-name' }, [
+							E('span', { 'class': 'rd-dot warn' }),
+							serviceLabel(name)
+						]),
+						E('div', { 'class': 'rd-service-state' }, [ _('Managed by Forkop') ])
+					])
+				]));
+				continue;
+			}
+
 			const running = services[name].running;
 			serviceRows.push(E('div', { 'class': 'rd-row' }, [
 				E('div', {}, [
@@ -193,12 +228,10 @@ return view.extend({
 					E('div', { 'class': 'rd-service-state' }, [ running ? _('Running') : _('Stopped') ])
 				]),
 				E('div', { 'class': 'rd-actions' }, [
-					(name === 'sing-box' && services.forkop)
-						? E('span', { 'class': 'rd-service-state' }, [ _('Managed by Forkop') ])
-						: E('button', {
-							'class': 'rd-btn',
-							'click': ui.createHandlerFn(this, 'handleService', name, running ? 'restart' : 'start')
-						}, [ running ? _('Restart') : _('Start') ])
+					E('button', {
+						'class': 'rd-btn',
+						'click': ui.createHandlerFn(this, 'handleService', name, services[name].init, running ? 'restart' : 'start')
+					}, [ running ? _('Restart') : _('Start') ])
 				])
 			]));
 		}
@@ -210,7 +243,7 @@ return view.extend({
 				'rel': 'stylesheet',
 				'href': L.resource('router-dashboard/dashboard.css')
 			}),
-			E('header', { 'class': 'rd-head' }, [
+			E('div', { 'class': 'rd-head' }, [
 				E('div', {}, [
 					E('div', { 'class': 'rd-title' }, [ 'OpenWrt Dashboard' ]),
 					E('div', { 'class': 'rd-sub' }, [
