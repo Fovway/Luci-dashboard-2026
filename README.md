@@ -20,15 +20,54 @@ The project does **not** replace or patch stock LuCI. It adds a separate page at
 - Start / stop / restart buttons for detected services
 - Responsive light/dark UI
 
-## Target
+## One-command install
 
-Modern OpenWrt releases using JavaScript LuCI views.
+Run on the router:
 
-The current implementation is designed around the current LuCI JS API and avoids legacy Lua controllers.
+```sh
+uclient-fetch -qO- https://raw.githubusercontent.com/Fovway/Luci-dashboard-2026/main/install-online.sh | sh
+```
+
+If `uclient-fetch` is unavailable:
+
+```sh
+wget -qO- https://raw.githubusercontent.com/Fovway/Luci-dashboard-2026/main/install-online.sh | sh
+```
+
+Then open:
+
+**LuCI -> Status -> Router Dashboard**
+
+## Development install
+
+Clone or copy the repository onto the router and run:
+
+```sh
+chmod +x install.sh uninstall.sh
+./install.sh
+```
+
+To remove it:
+
+```sh
+./uninstall.sh
+```
+
+## Build as an OpenWrt package
+
+Copy `luci-app-router-dashboard` into the OpenWrt buildroot package tree:
+
+```sh
+cp -r luci-app-router-dashboard /path/to/openwrt/package/
+cd /path/to/openwrt
+make package/luci-app-router-dashboard/compile V=s
+```
+
+The package uses the current JavaScript LuCI API and `feeds/luci/luci.mk`, so it can be built as an external package inside a normal OpenWrt buildroot.
 
 ## Repository layout
 
-```
+```text
 luci-app-router-dashboard/
   Makefile
   htdocs/luci-static/resources/
@@ -39,49 +78,19 @@ luci-app-router-dashboard/
     rpcd/acl.d/luci-app-router-dashboard.json
 
 install.sh
+install-online.sh
 uninstall.sh
-```
-
-## Quick development install
-
-Copy or clone the repository onto the router and run:
-
-```sh
-chmod +x install.sh uninstall.sh
-./install.sh
-```
-
-Then refresh LuCI and open:
-
-**Status -> Router Dashboard**
-
-To remove it:
-
-```sh
-./uninstall.sh
-```
-
-## Build as an OpenWrt package
-
-Copy `luci-app-router-dashboard` into the OpenWrt buildroot or SDK package tree, for example:
-
-```sh
-cp -r luci-app-router-dashboard /path/to/openwrt/package/
-cd /path/to/openwrt
-make package/luci-app-router-dashboard/compile V=s
 ```
 
 ## Optional services
 
-AdGuard Home, Forkop and sing-box are optional.
+AdGuard Home, Forkop and sing-box are optional. Missing services are simply omitted from the Services card.
 
-If one of them is not installed, it is simply omitted from the Services card.
+## Privacy
 
-## Notes
+The dashboard masks public IPv4 addresses:
 
-The dashboard masks an IPv4 address such as:
-
-```
+```text
 80.189.23.41 -> 80.189.*.*
 ```
 
