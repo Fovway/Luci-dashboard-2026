@@ -8,10 +8,11 @@
         "network.wireless": [ "status" ],
         "iwinfo": [ "info", "assoclist" ],
         "luci-rpc": [ "getHostHints", "getNetworkDevices" ],
-        "rc": [ "init" ]
+        "rc": [ "list", "init" ]
       },
       "file": {
         "/sys/class/thermal/thermal_zone0/temp": [ "read" ],
+        "/proc/cpuinfo": [ "read" ],
         "/etc/init.d/adguardhome": [ "read" ],
         "/etc/init.d/forkop": [ "read" ],
         "/etc/init.d/sing-box": [ "read" ]
